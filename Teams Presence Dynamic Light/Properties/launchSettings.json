@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Teams Presence Dynamic Light (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Teams Presence Dynamic Light (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
