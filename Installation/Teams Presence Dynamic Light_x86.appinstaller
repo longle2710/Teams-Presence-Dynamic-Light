@@ -1,19 +1,19 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <AppInstaller
 	Uri="file:///C:/Users/nguyenp2/source/repos/Teams Presence Dynamic Light/Installation/Teams Presence Dynamic Light_x86.appinstaller"
-	Version="1.0.3.0" xmlns="http://schemas.microsoft.com/appx/appinstaller/2017/2">
+	Version="1.0.4.0" xmlns="http://schemas.microsoft.com/appx/appinstaller/2017/2">
 	<MainPackage
 		Name="fdb0579d-7598-4f9c-a750-9a0e2646e265"
-		Version="1.0.3.0"
+		Version="1.0.4.0"
 		Publisher="CN=nguyenp2"
-		Uri="file:///C:/Users/nguyenp2/source/repos/Teams Presence Dynamic Light/Installation/Teams Presence Dynamic Light_1.0.3.0_x86_Debug_Test/Teams Presence Dynamic Light_1.0.3.0_x86_Debug.msix"
+		Uri="file:///C:/Users/nguyenp2/source/repos/Teams Presence Dynamic Light/Installation/Teams Presence Dynamic Light_1.0.4.0_x86_Debug_Test/Teams Presence Dynamic Light_1.0.4.0_x86_Debug.msix"
 		ProcessorArchitecture="x86" />
 	<Dependencies>
 		<Package
 			Name="Microsoft.WindowsAppRuntime.1.8"
 			Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
 			ProcessorArchitecture="x86"
-			Uri="file:///C:/Users/nguyenp2/source/repos/Teams Presence Dynamic Light/Installation/Teams Presence Dynamic Light_1.0.3.0_x86_Debug_Test/Dependencies/x86/Microsoft.WindowsAppRuntime.1.8.msix"
+			Uri="file:///C:/Users/nguyenp2/source/repos/Teams Presence Dynamic Light/Installation/Teams Presence Dynamic Light_1.0.4.0_x86_Debug_Test/Dependencies/x86/Microsoft.WindowsAppRuntime.1.8.msix"
 			Version="8000.675.1142.0" />
 	</Dependencies>
 	<UpdateSettings>

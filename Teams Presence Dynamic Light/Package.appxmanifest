@@ -11,7 +11,7 @@
   <Identity
     Name="fdb0579d-7598-4f9c-a750-9a0e2646e265"
     Publisher="CN=nguyenp2"
-    Version="1.0.3.0" />
+    Version="1.0.4.0" />
 
   <mp:PhoneIdentity PhoneProductId="fdb0579d-7598-4f9c-a750-9a0e2646e265" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

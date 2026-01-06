@@ -1,10 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -12,12 +6,21 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using Ro.Teams.LocalApi;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading;
+using System.Threading.Tasks;
+using Windows.Devices.Lights;
+using Windows.Devices.Lights.Effects;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 
-using Windows.Devices.Lights;
-using Windows.Devices.Lights.Effects;
-using Microsoft.UI.Dispatching;
+using static System.Console;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -76,6 +79,10 @@ namespace Teams_Presence_Dynamic_Light
         private long _lastFilePosition = 0;
         private string _lastLogFilePath = string.Empty;
         private readonly object _lockObject = new object();
+        private string? token = null;
+
+        Client? Teams = null;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -87,8 +94,121 @@ namespace Teams_Presence_Dynamic_Light
             // Handle window closing to cleanup resources
             this.Closed += MainWindow_Closed;
             
+            // Load saved token from settings
+            try
+            {
+                token = Settings.Default.Token;
+                if (!string.IsNullOrEmpty(token))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Loaded token from settings: {token.Substring(0, Math.Min(20, token.Length))}...");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("No saved token found");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading settings: {ex.Message}");
+                token = null;
+            }
+
+            // Initialize Teams client WITHOUT auto-connect so we can set up event handlers first
+            Teams = new Client(autoConnect: false, token: token);
+
+            Teams.TokenReceived += (_, args) =>
+            {
+                System.Diagnostics.Debug.WriteLine("Event: TokenReceived");
+
+                // Save token to settings
+                Settings.Default.Token = args.Token;
+                System.Diagnostics.Debug.WriteLine($"Token saved to settings: {args.Token.Substring(0, Math.Min(20, args.Token.Length))}...");
+            };
+
+            Teams.Connected += (_, _) =>
+            {
+                System.Diagnostics.Debug.WriteLine("Event: Connected");
+                System.Diagnostics.Debug.WriteLine($"Connection established with token: {(!string.IsNullOrEmpty(token) ? "Yes" : "No")}");
+            };
+
+            Teams.Disconnected += (_, _) => System.Diagnostics.Debug.WriteLine("Event: Disconnected");
+
+            Teams.PropertyChanged += (o, e) =>
+            {
+                if (o is null || e.PropertyName is null) return;
+                var value = o.GetType()?.GetProperty(e.PropertyName)?.GetValue(o, null);
+                System.Diagnostics.Debug.WriteLine($"Event: PropertyChanged: {e.PropertyName}={value}");
+                if (e.PropertyName == "IsInMeeting")
+                {
+                    System.Diagnostics.Debug.WriteLine($"IsInMeeting changed to: {value}");
+                    if(value is bool isInMeeting && isInMeeting)
+                    {
+                        availability = "Busy";
+                    }
+                    else
+                    {
+                        // Optionally, refresh availability from logs when leaving meeting
+                        Get_Availability_Status_From_Logs();
+
+                    }
+                }
+            };
+
+            Teams.ErrorReceived += (_, args) => System.Diagnostics.Debug.WriteLine($"Event: ErrorReceived: {args.ErrorMessage}");
+
+
             Get_Light();
             PrintAvailableLights();
+            Connect_Teams_API();
+        }
+
+        private async void Connect_Teams_API()
+        {
+            try
+            {
+                if (Teams == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("Teams client not initialized");
+                    return;
+                }
+
+                // Set up event handlers BEFORE connecting
+                Teams.TokenReceived += (_, args) =>
+                {
+                    System.Diagnostics.Debug.WriteLine("Event: TokenReceived");
+                    token = args.Token;
+                    
+                    // Save token to settings
+                    Settings.Default.Token = token;
+                    System.Diagnostics.Debug.WriteLine($"Token saved to settings: {token.Substring(0, Math.Min(20, token.Length))}...");
+                };
+                Teams.Connected += (_, _) => 
+                {
+                    System.Diagnostics.Debug.WriteLine("Event: Connected");
+                    System.Diagnostics.Debug.WriteLine($"Connection established with token: {(!string.IsNullOrEmpty(token) ? "Yes" : "No")}");
+                };
+                
+                Teams.Disconnected += (_, _) => System.Diagnostics.Debug.WriteLine("Event: Disconnected");
+                
+                Teams.PropertyChanged += (o, e) =>
+                {
+                    if (o is null || e.PropertyName is null) return;
+                    var value = o.GetType()?.GetProperty(e.PropertyName)?.GetValue(o, null);
+                    System.Diagnostics.Debug.WriteLine($"Event: PropertyChanged: {e.PropertyName}={value}");
+                };
+                
+                Teams.ErrorReceived += (_, args) => System.Diagnostics.Debug.WriteLine($"Event: ErrorReceived: {args.ErrorMessage}");
+                
+                // Now connect with the token
+                System.Diagnostics.Debug.WriteLine($"Attempting to connect with existing token: {(!string.IsNullOrEmpty(token) ? "Yes" : "No")}");
+                await Teams.Connect(true, CancellationToken.None);
+                System.Diagnostics.Debug.WriteLine("Connected to Teams Local API successfully");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error connecting to Teams Local API: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
         }
 
         private void MainWindow_Closed(object sender, WindowEventArgs args)
@@ -477,7 +597,19 @@ namespace Teams_Presence_Dynamic_Light
                         {
                             System.Diagnostics.Debug.WriteLine($"UI update error: {uiEx.Message}");
                         }
-
+                        
+                        if (Teams != null && Teams.IsInMeeting == true)
+                        {
+                            if (Teams.IsSharing == true)
+                            {
+                                availability = "DoNotDisturb";
+                            }
+                            else
+                            {
+                                availability = "Busy";
+                            }
+                            
+                        }
                         System.Diagnostics.Debug.WriteLine($"Current availability status: {availability}");
 
                         Windows.UI.Color newColor;
@@ -643,6 +775,38 @@ namespace Teams_Presence_Dynamic_Light
             }
 
             return newLines;
+        }
+
+        private void Connect_API(object sender, RoutedEventArgs e)
+        {
+            Connect_Teams_API();
+        }
+
+        private void Custom_button(object sender, RoutedEventArgs e)
+        {
+            if (Teams != null)
+            {
+                Teams.IsMuted = !Teams.IsMuted;
+                System.Diagnostics.Debug.WriteLine("=== Teams Client Status ===");
+                System.Diagnostics.Debug.WriteLine($"IsConnected: {Teams.IsConnected}");
+                System.Diagnostics.Debug.WriteLine($"IsInMeeting: {Teams.IsInMeeting}");
+                System.Diagnostics.Debug.WriteLine($"IsMuted: {Teams.IsMuted}");
+                System.Diagnostics.Debug.WriteLine($"Token present: {(!string.IsNullOrEmpty(token) ? "Yes" : "No")}");
+                System.Diagnostics.Debug.WriteLine($"Token from settings: {(!string.IsNullOrEmpty(Settings.Default.Token) ? "Yes" : "No")}");
+                
+                if (!string.IsNullOrEmpty(token))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Token preview: {token.Substring(0, Math.Min(20, token.Length))}...");
+                }
+                if (!string.IsNullOrEmpty(Settings.Default.Token))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Settings token preview: {Settings.Default.Token.Substring(0, Math.Min(20, Settings.Default.Token.Length))}...");
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("Teams client is null");
+            }
         }
     }
 

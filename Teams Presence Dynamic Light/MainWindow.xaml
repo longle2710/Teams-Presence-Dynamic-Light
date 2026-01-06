@@ -17,7 +17,9 @@
         <StackPanel>
             <Button Content="Check Teams Status" Click="Check_Click" />
             <TextBlock x:Name="StatusTextBlock" Text="Team Status: Unknown"/>
-            <ToggleButton Content="ToggleButton" Click="Toggle_Change" />
+            <ToggleButton Content="Enable Light" Click="Toggle_Change" />
+            <Button Content="Connect Teams API" Click="Connect_API" />
+            <Button Content="Toggle Mute" Click="Custom_button" />
         </StackPanel>
     </Grid>
 </Window>
