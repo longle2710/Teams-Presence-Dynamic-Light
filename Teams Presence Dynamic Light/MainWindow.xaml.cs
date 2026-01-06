@@ -66,7 +66,7 @@ namespace Teams_Presence_Dynamic_Light
 
         private string? _lampArrayDeviceSelector;
         private Windows.Devices.Enumeration.DeviceInformationCollection? _lampArrayDevices;
-        private LampArrayEffectPlaylist _playlist;
+        private Dictionary<string, LampArrayEffectPlaylist> _playlists = new Dictionary<string, LampArrayEffectPlaylist>();
 
         private string availability = "NA";
         private string target_effect = null;
@@ -261,21 +261,26 @@ namespace Teams_Presence_Dynamic_Light
             }   
             _previousColor = targetColor;
             _previous_effect = target_effect;
-    
+            System.Diagnostics.Debug.WriteLine($"Found {_lampArrayDevices.Count} lamp array device(s):");
             if (_lampArrayDevices != null && _lampArrayDevices.Count > 0)
-            {
+            {   
+
                 foreach (var deviceInfo in _lampArrayDevices)
                 {
                     var lampArray = await LampArray.FromIdAsync(deviceInfo.Id);
                     if (lampArray != null)
                     {
-                        if (_playlist != null)
+                        if (_playlists.ContainsKey(deviceInfo.Id))
                         {
-                            _playlist.Stop();
+                            _playlists[deviceInfo.Id].Stop();
+                            _playlists[deviceInfo.Id] = new LampArrayEffectPlaylist();
+                            _playlists[deviceInfo.Id].RepetitionMode = LampArrayRepetitionMode.Forever;
                         }
-
-                        _playlist = new LampArrayEffectPlaylist();
-                        _playlist.RepetitionMode = LampArrayRepetitionMode.Forever;
+                        else
+                        {
+                            _playlists[deviceInfo.Id] = new LampArrayEffectPlaylist();
+                            _playlists[deviceInfo.Id].RepetitionMode = LampArrayRepetitionMode.Forever;
+                        }
 
                         int[] indices = Enumerable.Range(0, lampArray.LampCount).ToArray();
                         if (target_effect == null)
@@ -285,7 +290,7 @@ namespace Teams_Presence_Dynamic_Light
                                 Color = targetColor,
                                 CompletionBehavior = LampArrayEffectCompletionBehavior.KeepState,
                             };
-                            _playlist.Append(effect);
+                            _playlists[deviceInfo.Id].Append(effect);
                         }
                         else if(target_effect == "pulse")
                         {
@@ -298,7 +303,7 @@ namespace Teams_Presence_Dynamic_Light
                                 RepetitionMode = LampArrayRepetitionMode.Forever,
 
                             };
-                            _playlist.Append(effect);
+                            _playlists[deviceInfo.Id].Append(effect);
 
                         }
                         else
@@ -308,10 +313,10 @@ namespace Teams_Presence_Dynamic_Light
                                 Color = targetColor,
                                 CompletionBehavior = LampArrayEffectCompletionBehavior.KeepState
                             };
-                            _playlist.Append(effect);
+                            _playlists[deviceInfo.Id].Append(effect);
                         }
                         
-                        _playlist.Start();
+                        _playlists[deviceInfo.Id].Start();
                     }
                 }
             }
@@ -323,7 +328,11 @@ namespace Teams_Presence_Dynamic_Light
 
         private void ReleaseLampArrays()
         {
-            _playlist?.Stop();
+            foreach (var playlist in _playlists.Values)
+            {
+                playlist.Stop();
+            }
+            _playlists.Clear();
             _previousColor = Windows.UI.Color.FromArgb(255, 255, 255, 255);
             _previous_effect = null;
             _lastFilePosition = 0;
@@ -618,7 +627,7 @@ namespace Teams_Presence_Dynamic_Light
                         }
 
                         // Update the last position to current position
-                        lastPosition = fileStream.Position - 1;
+                        lastPosition = fileStream.Position - 2;
                         if (lastPosition < 0) lastPosition = 0; // Ensure non-negative
                     }
                 }
